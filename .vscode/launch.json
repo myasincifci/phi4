@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["--checkpoint", "model_nflows.pth", "--lat-shape", "16x8"],
+            "args": ["--checkpoint", "model_nflows.pth", "--lat-shape", "16x8", "--n-iter", "500"],
             "console": "integratedTerminal",
             "justMyCode": false
         }

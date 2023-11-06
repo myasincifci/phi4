@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/745319839c0643cebe9bdb8d36d7de69/artifacts
+end_time: 1698007637444
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 745319839c0643cebe9bdb8d36d7de69
+run_name: nosy-lamb-113
+run_uuid: 745319839c0643cebe9bdb8d36d7de69
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1698007473720
+status: 3
+tags: []
+user_id: yasin

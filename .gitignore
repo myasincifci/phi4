@@ -1,0 +1,5 @@
+/mlruns
+/outputs
+/lightning_logs
+/wandb
+/__pycache__

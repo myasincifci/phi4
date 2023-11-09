@@ -1,7 +1,8 @@
 from typing import Any
 import numpy as np
-from pytorch_lightning.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 from pytorch_lightning.callbacks import ModelCheckpoint
+import time
 
 import torch
 from torch import nn
@@ -18,8 +19,12 @@ from nflows.transforms.base import CompositeTransform
 import matplotlib.pyplot as plt
 
 from neulat.action import Phi4Action
+
 from loss import ReparamKL
 from neulat.models import Z2Nice, COUPLINGS
+
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 from tqdm import tqdm
 
@@ -28,6 +33,9 @@ import pytorch_lightning as pl
 
 import mlflow
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+from pytorch_lightning.loggers import WandbLogger
+import wandb
 
 class Net(nn.Module):
     def __init__(self, num_id, num_trf) -> None:
@@ -88,8 +96,8 @@ class SimpleRealNVP(Flow):
 
         if use_volume_preserving:
             coupling_constructor = AdditiveCouplingTransform
-            # coupling_constructor = Z2NICE
-            coupling_constructor = splines.linear_spline
+            coupling_constructor = Z2NICE
+            # coupling_constructor = splines.linear_spline
         else:
             coupling_constructor = AffineCouplingTransform
 
@@ -124,10 +132,12 @@ class SimpleRealNVP(Flow):
 
     
 class NicePhi4(pl.LightningModule):
-    def __init__(self, lat_shape, dev, kappa=0.3, lambd=0.022,*args: Any, **kwargs: Any) -> None:
+    def __init__(self, cfg, lat_shape, dev, kappa=0.3, lambd=0.022,*args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+        self.cfg = cfg
         
-        self.lattice_shape = lat_shape
+        # self.lattice_shape = lat_shape
         self.action=Phi4Action(kappa, lambd)
 
         # Define flow
@@ -167,8 +177,8 @@ class NicePhi4(pl.LightningModule):
 
         return loss
     
-    def configure_optimizers(self) -> OptimizerLRScheduler:
-        optimizer = torch.optim.Adam(self.flow.parameters(), lr=5e-4, amsgrad=True)
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.flow.parameters(), lr=self.cfg.param.lr, amsgrad=True)
         lr_scheduler = ReduceLROnPlateau(
             optimizer,
             factor=0.92,
@@ -188,11 +198,12 @@ class NicePhi4(pl.LightningModule):
         return checker.flatten()
     
 class RealNVP(pl.LightningModule):
-    def __init__(self, lat_shape, kappa=0.3, lambd=0.022,*args: Any, **kwargs: Any) -> None:
+    def __init__(self, cfg, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.cfg = cfg
         
-        self.lattice_shape = lat_shape
-        self.action=Phi4Action(kappa, lambd)
+        self.lattice_shape = cfg.lat_shape
+        self.action=Phi4Action(cfg.kappa, cfg.lambd)
 
         # Define flow
         self.flow = SimpleRealNVP(
@@ -207,7 +218,7 @@ class RealNVP(pl.LightningModule):
             model=self.flow, 
             action=self.action, 
             lat_shape=self.lattice_shape,
-            batch_size=8_000,
+            batch_size=cfg.param.batch_size,
         )
 
     def training_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
@@ -224,7 +235,7 @@ class RealNVP(pl.LightningModule):
 
         return loss
     
-    def configure_optimizers(self) -> OptimizerLRScheduler:
+    def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.flow.parameters(), lr=5e-4, amsgrad=True)
         lr_scheduler = ReduceLROnPlateau(
             optimizer,
@@ -254,7 +265,36 @@ class DummyDataset(Dataset):
     def __getitem__(self, index) -> Any:
         return torch.tensor([0])
 
-def main():
+@hydra.main(version_base=None, config_path="configs")
+def main(cfg : DictConfig) -> None:
+    print(OmegaConf.to_yaml(cfg))    # start a new wandb run to track this script
+    
+    logger = True
+    if cfg.logging:
+        # start a new wandb run to track this script
+        wandb.login(
+            key="deeed2a730495791be1a0158cf49240b65df1ffa"
+        )
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="Phi-4",
+            
+            # track hyperparameters and run metadata
+            config={
+                "learning_rate": cfg.param.lr,
+
+                "batch_size": cfg.param.batch_size,
+
+                "architecture": "ResNet 50",
+                "dataset": "camelyon17",
+            },
+
+            id=f"{cfg.name}-{time.time()}"
+        )
+        logger = WandbLogger()
+
+    ############################################################################
+
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     train_set = DummyDataset()
@@ -269,7 +309,7 @@ def main():
     )
 
     # model = NicePhi4(lat_shape=(16,8), dev=device)
-    model = RealNVP(lat_shape=(16,8))
+    model = RealNVP(cfg=cfg)
 
     trainer.fit(
         model=model,

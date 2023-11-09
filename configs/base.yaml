@@ -1,0 +1,8 @@
+name: Base
+logging: True
+param:
+    lr: 5e-4
+    batch_size: 20_000
+lat_shape: [16,8]
+kappa: 0.3
+lambd: 0.022

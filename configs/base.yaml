@@ -2,7 +2,7 @@ name: Base
 logging: False
 param:
     lr: 5e-4
-    batch_size: 20_000
+    batch_size: 8_000
 lat_shape: [16,8]
 kappa: 0.3
 lambd: 0.022

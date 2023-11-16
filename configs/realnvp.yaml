@@ -1,0 +1,11 @@
+defaults:
+  - base
+
+name: RealNVP
+model:
+    type: real_nvp
+    kwargs:
+        hidden_features: 100
+        num_layers: 20
+        num_blocks_per_layer: 4
+        use_volume_preserving: True

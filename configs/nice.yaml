@@ -1,0 +1,9 @@
+defaults:
+  - base
+
+name: Z2Nice
+model:
+    type: z2nice
+    kwargs:
+        hidden_features: 1000
+        num_layers: 4

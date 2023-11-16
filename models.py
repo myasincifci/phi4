@@ -31,6 +31,10 @@ class MLP(nn.Module):
         return self.net(x)
     
 class ACTwithScaling(AdditiveCouplingTransform):
+    """ Version of AdditiveCouplingTransform with added 
+    scaling component.
+    """
+    
     def __init__(self, mask, transform_net_create_fn, unconditional_transform=None, scale_activation=...):
         super().__init__(mask, transform_net_create_fn, 
                          unconditional_transform=unconditional_transform,
@@ -53,8 +57,8 @@ class Z2Nice(Flow):
     def __init__(
         self,
         lat_shape,
-        hidden_features,
-        num_layers,  
+        hidden_features=1000,
+        num_layers=4,  
         activation=F.relu,    
     ):
         coupling_constructor = ACTwithScaling
@@ -99,11 +103,11 @@ class SimpleRealNVP(Flow):
 
     def __init__(
         self,
-        features,
-        hidden_features,
-        num_layers,
-        num_blocks_per_layer,
-        use_volume_preserving=False,
+        lat_shape,
+        num_layers=20,
+        num_blocks_per_layer=4,
+        hidden_features=None,
+        use_volume_preserving=True,
         activation=F.relu,
         dropout_probability=0.0,
         batch_norm_within_layers=False,
@@ -117,7 +121,7 @@ class SimpleRealNVP(Flow):
         else:
             coupling_constructor = AffineCouplingTransform
 
-        mask = torch.ones(features)
+        mask = torch.ones(math.prod(lat_shape))
         mask[::2] = -1
 
         def create_resnet(in_features, out_features):
@@ -139,9 +143,14 @@ class SimpleRealNVP(Flow):
             layers.append(transform)
             mask *= -1
             if batch_norm_between_layers:
-                layers.append(BatchNorm(features=features))
+                layers.append(BatchNorm(features=math.prod(lat_shape)))
 
         super().__init__(
             transform=CompositeTransform(layers),
-            distribution=StandardNormal([features]),
+            distribution=StandardNormal([math.prod(lat_shape)]),
         )
+
+model_dict = {
+    "real_nvp": SimpleRealNVP,
+    "z2nice": Z2Nice   
+}

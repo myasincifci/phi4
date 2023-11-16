@@ -60,6 +60,7 @@ class Z2Nice(Flow):
         hidden_features=1000,
         num_layers=4,  
         activation=F.relu,    
+        device="cpu"
     ):
         coupling_constructor = ACTwithScaling
 
@@ -82,7 +83,7 @@ class Z2Nice(Flow):
 
         super().__init__(
             transform=CompositeTransform(layers),
-            distribution=StandardNormal([math.prod(lat_shape)]),
+            distribution=StandardNormal([math.prod(lat_shape)]).to(device),
         )
     
     def _make_checker_mask(self, shape, parity):
@@ -112,6 +113,7 @@ class SimpleRealNVP(Flow):
         dropout_probability=0.0,
         batch_norm_within_layers=False,
         batch_norm_between_layers=False,
+        device="cpu"
     ):
 
         if use_volume_preserving:
@@ -147,7 +149,7 @@ class SimpleRealNVP(Flow):
 
         super().__init__(
             transform=CompositeTransform(layers),
-            distribution=StandardNormal([math.prod(lat_shape)]),
+            distribution=StandardNormal([math.prod(lat_shape)]).to(device),
         )
 
 model_dict = {

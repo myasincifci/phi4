@@ -31,4 +31,4 @@ class ReparamKL(torch.nn.Module):
 
         loss_mean = loss.mean()
 
-        return loss_mean, loss, actions
+        return loss_mean, loss, actions, samples

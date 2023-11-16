@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from pytorch_lightning.callbacks import ModelCheckpoint
 import time
@@ -37,15 +37,18 @@ class NeulatModule(pl.LightningModule):
         self.criterion = criterion
 
     def training_step(self, _) -> STEP_OUTPUT:
-        loss, loss_summands, _ = self.criterion()
+        loss, loss_summands, _, samples = self.criterion()
         loss_var = loss_summands.var()
+        abs_mag = samples.abs().mean()
 
         self.log_dict({
             "loss": loss,
-            "var": loss_var
+            "var": loss_var,
+            "abs_mag": abs_mag
         }, prog_bar=True)
 
         return loss
+    
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=5e-4, amsgrad=True)
@@ -88,14 +91,7 @@ def main(cfg : DictConfig) -> None:
             project="Phi-4",
             
             # track hyperparameters and run metadata
-            config={
-                "learning_rate": cfg.param.lr,
-
-                "batch_size": cfg.param.batch_size,
-
-                "architecture": "ResNet 50",
-                "dataset": "camelyon17",
-            },
+            config=cfg,
 
             id=f"{cfg.name}-{time.time()}"
         )
@@ -113,26 +109,14 @@ def main(cfg : DictConfig) -> None:
     trainer = pl.Trainer(
         max_steps=1_000_000,
         accelerator="auto",
-        callbacks=[checkpoint_callback]
+        callbacks=[checkpoint_callback],
+        val_check_interval=100
     )
-
-    # flow = SimpleRealNVP(
-    #     features=16*8,
-    #     hidden_features=100,
-    #     num_layers=20,
-    #     num_blocks_per_layer=4, 
-    #     use_volume_preserving=True,
-    # )
-
-    # flow2 = Z2Nice(
-    #     lat_shape=list(cfg.lat_shape),
-    #     hidden_features=1000,
-    #     num_layers=4
-    # )
 
     flow = model_dict[cfg.model.type](
         list(cfg.lat_shape),
-        **dict(cfg.model.kwargs)
+        **dict(cfg.model.kwargs),
+        device=device
     )
 
     action = Phi4Action(cfg.kappa, cfg.lambd)
@@ -150,7 +134,7 @@ def main(cfg : DictConfig) -> None:
 
     trainer.fit(
         model=model,
-        train_dataloaders=train_loader
+        train_dataloaders=train_loader,
     )
 
 if __name__ == "__main__":

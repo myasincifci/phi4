@@ -1,5 +1,5 @@
 name: Base
-logging: True
+logging: False
 param:
     lr: 5e-4
     batch_size: 20_000

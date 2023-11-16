@@ -3,3 +3,4 @@
 /lightning_logs
 /wandb
 /__pycache__
+/epoch=*
